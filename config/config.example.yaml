@@ -1,0 +1,19 @@
+server:
+  host: "0.0.0.0"
+  port: 8443
+
+database:
+  path: "./data/c2.db"
+
+jwt:
+  secret: ""               # auto-generated on first run if empty
+  access_expiry: 15m
+  refresh_expiry: 168h     # 7 days
+
+master_key: ""             # auto-generated on first run if empty
+
+log_level: "info"
+
+tls:
+  cert_file: ""
+  key_file: ""             # self-signed cert generated if empty

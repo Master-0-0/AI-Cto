@@ -1,0 +1,33 @@
+# Binaries
+bin/
+payloads/*.exe
+payloads/*.bin
+payloads/implant-*
+
+# Database
+data/*.db
+data/*.db-journal
+data/*.db-wal
+
+# Web
+web/dist/
+web/node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+
+# Config with secrets (template is config.example.yaml)
+config/config.yaml
+
+# Temp
+tmp/
