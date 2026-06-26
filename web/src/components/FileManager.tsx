@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createTask, getTasks } from '../api/tasks';
+import { decodeBase64 } from '../utils';
 
 interface Props {
   agentId: string;
@@ -46,7 +47,7 @@ export default function FileManager({ agentId, defaultPath }: Props) {
       await waitForResult((task) => {
         if (task.command === 'listdrives' && task.status === 'completed' && task.output) {
           try {
-            const raw = atob(task.output);
+            const raw = decodeBase64(task.output);
             const data = JSON.parse(raw);
             const nodes: TreeNode[] = (data.drives || []).map((d: any) => ({
               name: d.name,
@@ -85,7 +86,7 @@ export default function FileManager({ agentId, defaultPath }: Props) {
       await waitForResult((task) => {
         if (task.command === 'listdir' && task.status === 'completed' && task.output) {
           try {
-            const raw = atob(task.output);
+            const raw = decodeBase64(task.output);
             const data = JSON.parse(raw);
             const children: TreeNode[] = (data.files || []).map((f: FileEntry) => ({
               ...f,
@@ -156,10 +157,10 @@ export default function FileManager({ agentId, defaultPath }: Props) {
       await waitForResult((task) => {
         if (task.command === 'readfile' && task.status === 'completed' && task.output) {
           try {
-            const raw = atob(task.output);
+            const raw = decodeBase64(task.output);
             const data = JSON.parse(raw);
             setSelectedFile(file);
-            const content = atob(data.content);
+            const content = decodeBase64(data.content);
             setFileContent(content);
             setEditedContent(content);
             setEditing(false);

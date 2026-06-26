@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createTask, getTasks } from '../api/tasks';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { decodeBase64 } from '../utils';
 import type { Task } from '../types';
 
 interface Props {
@@ -18,7 +19,7 @@ interface LogEntry {
 function decodeOutput(output?: string): string {
   if (!output) return '';
   try {
-    return atob(output);
+    return decodeBase64(output);
   } catch {
     return output;
   }

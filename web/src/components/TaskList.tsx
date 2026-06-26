@@ -1,3 +1,4 @@
+import { decodeBase64 } from '../utils';
 import type { Task } from '../types';
 
 interface Props {
@@ -7,7 +8,7 @@ interface Props {
 function decodeOutput(output?: string): string {
   if (!output) return '';
   try {
-    return atob(output);
+    return decodeBase64(output);
   } catch {
     return output;
   }
