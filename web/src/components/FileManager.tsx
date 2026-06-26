@@ -43,8 +43,8 @@ export default function FileManager({ agentId, defaultPath }: Props) {
     setLoading(true);
     setError('');
     try {
-      await createTask(agentId, { command: 'listdrives', arguments: '' });
-      await waitForResult((task) => {
+      const created = await createTask(agentId, { command: 'listdrives', arguments: '' });
+      await waitForResult(created.id, (task) => {
         if (task.command === 'listdrives' && task.status === 'completed' && task.output) {
           try {
             const raw = decodeBase64(task.output);
@@ -82,8 +82,8 @@ export default function FileManager({ agentId, defaultPath }: Props) {
     setLoading(true);
     setError('');
     try {
-      await createTask(agentId, { command: 'listdir', arguments: node.path });
-      await waitForResult((task) => {
+      const created = await createTask(agentId, { command: 'listdir', arguments: node.path });
+      await waitForResult(created.id, (task) => {
         if (task.command === 'listdir' && task.status === 'completed' && task.output) {
           try {
             const raw = decodeBase64(task.output);
@@ -153,8 +153,8 @@ export default function FileManager({ agentId, defaultPath }: Props) {
     }
     setLoading(true);
     try {
-      await createTask(agentId, { command: 'readfile', arguments: file.path });
-      await waitForResult((task) => {
+      const created = await createTask(agentId, { command: 'readfile', arguments: file.path });
+      await waitForResult(created.id, (task) => {
         if (task.command === 'readfile' && task.status === 'completed' && task.output) {
           try {
             const raw = decodeBase64(task.output);
@@ -183,8 +183,8 @@ export default function FileManager({ agentId, defaultPath }: Props) {
       const bytes = enc.encode(editedContent);
       const contentB64 = btoa(String.fromCharCode(...bytes));
       const args = `${selectedFile.path}|${contentB64}`;
-      await createTask(agentId, { command: 'writefile', arguments: args });
-      await waitForResult((task) => {
+      const createdWrite = await createTask(agentId, { command: 'writefile', arguments: args });
+      await waitForResult(createdWrite.id, (task) => {
         if (task.command === 'writefile' && task.status === 'completed') {
           setFileContent(editedContent);
           setEditing(false);
@@ -210,8 +210,8 @@ export default function FileManager({ agentId, defaultPath }: Props) {
       const remotePath = `${cwd}/${file.name}`.replace(/\/\//g, '/').replace(/\\/g, '/');
       const args = `${remotePath}|${contentB64}`;
       try {
-        await createTask(agentId, { command: 'writefile', arguments: args });
-        await waitForResult((task) => {
+        const createdUpload = await createTask(agentId, { command: 'writefile', arguments: args });
+        await waitForResult(createdUpload.id, (task) => {
           if (task.command === 'writefile' && task.status === 'completed') {
             // Refresh current expanded node
             const target = findNodeByBreadcrumb();
@@ -261,7 +261,7 @@ export default function FileManager({ agentId, defaultPath }: Props) {
     URL.revokeObjectURL(url);
   }
 
-  function waitForResult(check: (task: any) => boolean): Promise<void> {
+  function waitForResult(taskId: string, check: (task: any) => boolean): Promise<void> {
     return new Promise((resolve, reject) => {
       let attempts = 0;
       const interval = setInterval(async () => {
@@ -269,7 +269,7 @@ export default function FileManager({ agentId, defaultPath }: Props) {
         try {
           const tasks = await getTasks(agentId);
           for (const t of tasks) {
-            if (t.status === 'completed' || t.status === 'error') {
+            if (t.id === taskId && (t.status === 'completed' || t.status === 'error')) {
               if (check(t)) { clearInterval(interval); resolve(); return; }
             }
           }
