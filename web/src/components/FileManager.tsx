@@ -22,6 +22,10 @@ interface TreeNode extends FileEntry {
   depth: number;
 }
 
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').toLowerCase();
+}
+
 export default function FileManager({ agentId, defaultPath }: Props) {
   const [roots, setRoots] = useState<TreeNode[]>([]);
   const [loading, setLoading] = useState(false);
@@ -33,6 +37,8 @@ export default function FileManager({ agentId, defaultPath }: Props) {
   const [breadcrumb, setBreadcrumb] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const dirCache = useRef<Map<string, FileEntry[]>>(new Map());
+  const drivesCache = useRef<TreeNode[] | null>(null);
 
   // Load drives / root on mount
   useEffect(() => {
@@ -40,6 +46,10 @@ export default function FileManager({ agentId, defaultPath }: Props) {
   }, [agentId]);
 
   async function loadDrives() {
+    if (drivesCache.current) {
+      setRoots(drivesCache.current);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -60,6 +70,7 @@ export default function FileManager({ agentId, defaultPath }: Props) {
               expanded: false,
               depth: 0,
             }));
+            drivesCache.current = nodes;
             setRoots(nodes);
           } catch { setError('Failed to parse drives'); }
           return true;
@@ -75,6 +86,21 @@ export default function FileManager({ agentId, defaultPath }: Props) {
     if (node.loaded) {
       // Toggle collapse
       setRoots((prev) => toggleNode(prev, node.path, !node.expanded));
+      updateBreadcrumb(node);
+      return;
+    }
+    // Check directory cache
+    const cacheKey = normalizePath(node.path);
+    const cached = dirCache.current.get(cacheKey);
+    if (cached !== undefined) {
+      const children: TreeNode[] = cached.map((f) => ({
+        ...f,
+        children: [],
+        loaded: false,
+        expanded: false,
+        depth: node.depth + 1,
+      }));
+      setRoots((prev) => populateChildren(prev, node.path, children));
       updateBreadcrumb(node);
       return;
     }
@@ -95,6 +121,7 @@ export default function FileManager({ agentId, defaultPath }: Props) {
               expanded: false,
               depth: node.depth + 1,
             }));
+            dirCache.current.set(cacheKey, data.files);
             setRoots((prev) => populateChildren(prev, node.path, children));
           } catch { setError('Failed to parse directory'); }
           return true;
@@ -126,7 +153,7 @@ export default function FileManager({ agentId, defaultPath }: Props) {
   function updateBreadcrumb(node: TreeNode) {
     // Build breadcrumb from root to this node
     const parts: string[] = [];
-    let current = node;
+    let current: TreeNode | null = node;
     while (current) {
       parts.unshift(current.name);
       // Find parent
@@ -186,6 +213,11 @@ export default function FileManager({ agentId, defaultPath }: Props) {
       const createdWrite = await createTask(agentId, { command: 'writefile', arguments: args });
       await waitForResult(createdWrite.id, (task) => {
         if (task.command === 'writefile' && task.status === 'completed') {
+          // Invalidate parent directory cache so file size/metadata updates
+          if (selectedFile) {
+            const lastSep = selectedFile.path.replace(/\\/g, '/').lastIndexOf('/');
+            if (lastSep > 0) dirCache.current.delete(normalizePath(selectedFile.path.substring(0, lastSep)));
+          }
           setFileContent(editedContent);
           setEditing(false);
           return true;
@@ -213,8 +245,9 @@ export default function FileManager({ agentId, defaultPath }: Props) {
         const createdUpload = await createTask(agentId, { command: 'writefile', arguments: args });
         await waitForResult(createdUpload.id, (task) => {
           if (task.command === 'writefile' && task.status === 'completed') {
-            // Refresh current expanded node
+            // Invalidate parent directory cache and refresh
             const target = findNodeByBreadcrumb();
+            if (target) dirCache.current.delete(normalizePath(target.path));
             if (target && target.loaded) {
               expandNode({ ...target, loaded: false });
             }
@@ -339,7 +372,7 @@ export default function FileManager({ agentId, defaultPath }: Props) {
       <div className="flex-between">
         <div className="card-title">File Manager</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn btn-secondary btn-xs" onClick={loadDrives} disabled={loading}>↻</button>
+          <button className="btn btn-secondary btn-xs" onClick={() => { drivesCache.current = null; dirCache.current.clear(); loadDrives(); }} disabled={loading}>↻</button>
           <button className="btn btn-primary btn-xs" onClick={() => uploadRef.current?.click()} disabled={uploading}>
             {uploading ? '⏳' : '📤'} Upload
           </button>
