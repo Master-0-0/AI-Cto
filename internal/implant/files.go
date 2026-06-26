@@ -10,6 +10,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 // FileInfo describes a single file or directory entry.
@@ -22,6 +25,7 @@ type FileInfo struct {
 }
 
 // ListDir returns a JSON-encoded list of directory entries.
+// On Windows, non-UTF-8 filenames are converted from GBK to UTF-8.
 func ListDir(dirPath string) ([]byte, error) {
 	if dirPath == "" {
 		dirPath = "."
@@ -41,8 +45,16 @@ func ListDir(dirPath string) ([]byte, error) {
 			continue
 		}
 		fullPath := filepath.Join(absPath, e.Name())
+		name := e.Name()
+		// On Windows, ensure filenames are valid UTF-8; treat as GBK if not.
+		if runtime.GOOS == "windows" && !utf8.ValidString(name) {
+			nameBytes := []byte(name)
+			if converted, ok := tryGBKToUTF8(nameBytes); ok {
+				name = string(converted)
+			}
+		}
 		files = append(files, FileInfo{
-			Name:    e.Name(),
+			Name:    name,
 			Path:    fullPath,
 			IsDir:   e.IsDir(),
 			Size:    info.Size(),
@@ -70,6 +82,7 @@ func ListDir(dirPath string) ([]byte, error) {
 }
 
 // ReadFile reads a file and returns base64-encoded content.
+// On Windows, auto-detects GBK encoding and converts to UTF-8 for display.
 func ReadFileContent(filePath string) ([]byte, error) {
 	const maxSize = 10 * 1024 * 1024 // 10 MB limit for MVP
 
@@ -89,11 +102,26 @@ func ReadFileContent(filePath string) ([]byte, error) {
 		return nil, fmt.Errorf("reading %s: %w", filePath, err)
 	}
 
-	// Return as JSON with base64 content
+	// Encoding detection and conversion for text files on Windows.
+	// Binary files are left untouched (returned as raw base64).
+	encoding := "binary"
+	displayData := data
+	if runtime.GOOS == "windows" && len(data) > 0 {
+		if utf8.Valid(data) {
+			encoding = "utf-8"
+		} else if converted, ok := tryGBKToUTF8(data); ok {
+			displayData = converted
+			encoding = "gbk"
+		}
+		// If neither UTF-8 nor GBK, treat as binary — return raw bytes.
+	}
+
+	// Return as JSON with base64 content and encoding hint
 	result := map[string]interface{}{
-		"path":    filePath,
-		"size":    len(data),
-		"content": base64.StdEncoding.EncodeToString(data),
+		"path":     filePath,
+		"size":     len(data),
+		"encoding": encoding,
+		"content":  base64.StdEncoding.EncodeToString(displayData),
 	}
 	jsonData, err := json.Marshal(result)
 	if err != nil {
@@ -102,8 +130,23 @@ func ReadFileContent(filePath string) ([]byte, error) {
 	return jsonData, nil
 }
 
+// tryGBKToUTF8 attempts to convert GBK bytes to UTF-8.
+// Returns the converted bytes and true if the GBK decoder accepted the input.
+func tryGBKToUTF8(data []byte) ([]byte, bool) {
+	decoder := simplifiedchinese.GBK.NewDecoder()
+	utf8Bytes := make([]byte, len(data)*3) // worst-case expansion
+	nDst, nSrc, err := decoder.Transform(utf8Bytes, data, false)
+	if err != nil && nSrc == 0 {
+		// Transform rejected the input entirely — not GBK
+		return nil, false
+	}
+	// Flush any remaining state
+	nFlush, _, _ := decoder.Transform(utf8Bytes[nDst:], nil, true)
+	return utf8Bytes[:nDst+nFlush], true
+}
+
 // WriteFileContent writes base64-encoded content to a file.
-// The arguments string format is: "<path>|<base64-content>"
+// Content is written as UTF-8 (the web UI sends UTF-8).
 func WriteFileContent(args string) ([]byte, error) {
 	parts := strings.SplitN(args, "|", 2)
 	if len(parts) != 2 {
