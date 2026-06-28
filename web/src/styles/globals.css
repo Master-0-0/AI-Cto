@@ -488,3 +488,137 @@ tr:hover td {
   gap: 8px;
   margin-top: 8px;
 }
+
+/* Stager Panel (inline in table) */
+.stager-expand-row td {
+  padding: 0;
+  background: rgba(15, 52, 96, 0.15);
+}
+
+.stager-panel {
+  padding: 0;
+}
+
+.stager-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.stager-header:hover {
+  background: rgba(233, 69, 96, 0.05);
+}
+
+.stager-arrow {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  width: 12px;
+  text-align: center;
+}
+
+.stager-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.stager-content {
+  padding: 0 16px 16px;
+}
+
+.stager-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.stager-tab {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.stager-tab:hover:not(.disabled) {
+  color: var(--text-primary);
+}
+
+.stager-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.stager-tab.disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.stager-tab-content {
+  /* container for command blocks */
+}
+
+.stager-hint {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.stager-command-group {
+  margin-bottom: 12px;
+}
+
+.stager-command-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.stager-command-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.stager-code-block {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  overflow-x: auto;
+}
+
+.stager-code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+}
+
+.stager-copy-btn {
+  flex-shrink: 0;
+}
+
+/* Button variant: info */
+.btn-info {
+  background: var(--info);
+  color: white;
+}
+
+.btn-info:hover {
+  background: #1976d2;
+}

