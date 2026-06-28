@@ -36,6 +36,7 @@ export default function TaskForm({ agentId, onTaskCreated }: Props) {
       <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8 }}>
         <select className="form-select" value={command} onChange={(e) => setCommand(e.target.value)} style={{ width: 120 }}>
           <option value="shell">Shell</option>
+          <option value="screenshot">Screenshot</option>
           <option value="sleep">Sleep</option>
           <option value="exit">Exit</option>
         </select>

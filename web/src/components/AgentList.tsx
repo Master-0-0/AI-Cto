@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getAgents, deleteAgent } from '../api/agents';
+import ContextMenu from './ContextMenu';
+import ScreenshotModal from './ScreenshotModal';
 import type { Agent } from '../types';
 
 export default function AgentList() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [contextMenu, setContextMenu] = useState<{
+    agent: Agent; x: number; y: number;
+  } | null>(null);
+  const [screenshotAgent, setScreenshotAgent] = useState<Agent | null>(null);
 
   async function load() {
     try {
@@ -47,7 +53,14 @@ export default function AgentList() {
             </thead>
             <tbody>
               {agents.map((a) => (
-                <tr key={a.id}>
+                <tr
+                  key={a.id}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setContextMenu({ agent: a, x: e.clientX, y: e.clientY });
+                  }}
+                  style={{ cursor: 'context-menu' }}
+                >
                   <td>
                     <Link to={`/agents/${a.id}`}>{a.hostname}</Link>
                   </td>
@@ -66,6 +79,28 @@ export default function AgentList() {
           </table>
         )}
       </div>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={[
+            {
+              label: 'Take Screenshot',
+              icon: '📸',
+              onClick: () => setScreenshotAgent(contextMenu.agent),
+            },
+          ]}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+      {screenshotAgent && (
+        <ScreenshotModal
+          agentId={screenshotAgent.id}
+          hostname={screenshotAgent.hostname}
+          onClose={() => setScreenshotAgent(null)}
+        />
+      )}
     </div>
   );
 }
