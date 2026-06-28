@@ -48,6 +48,8 @@ export default function Dashboard() {
                 <th>Hostname</th>
                 <th>OS</th>
                 <th>Username</th>
+                <th>Exe</th>
+                <th>Remote IP</th>
                 <th>Status</th>
                 <th>Last Seen</th>
               </tr>
@@ -58,6 +60,8 @@ export default function Dashboard() {
                   <td>{a.hostname}</td>
                   <td>{a.os}/{a.arch}</td>
                   <td>{a.username}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{a.exe_name}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{a.remote_ip}</td>
                   <td><span className={`badge badge-${a.status}`}>{a.status}</span></td>
                   <td className="text-muted">{new Date(a.last_seen).toLocaleString()}</td>
                 </tr>

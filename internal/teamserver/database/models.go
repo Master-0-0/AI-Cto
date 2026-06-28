@@ -45,6 +45,8 @@ type Agent struct {
 	PID                int     `json:"pid"`
 	LocalIPs           *string `json:"local_ips,omitempty"` // JSON array
 	Version            string  `json:"version"`
+	ExeName            string  `json:"exe_name"`            // implant executable filename
+	RemoteIP           string  `json:"remote_ip"`           // IP the implant connected from
 	FirstSeen          string  `json:"first_seen"`
 	LastSeen           string  `json:"last_seen"`
 	HeartbeatInterval  int     `json:"heartbeat_interval"`

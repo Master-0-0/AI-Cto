@@ -202,10 +202,11 @@ func (m *Manager) insertDB(agent *database.Agent) error {
 	agent.LastSeen = now
 
 	_, err := m.db.Exec(
-		`INSERT INTO agents (id, listener_id, hostname, os, arch, username, pid, local_ips, version, first_seen, last_seen, heartbeat_interval, status)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO agents (id, listener_id, hostname, os, arch, username, pid, local_ips, version, exe_name, remote_ip, first_seen, last_seen, heartbeat_interval, status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		agent.ID, agent.ListenerID, agent.Hostname, agent.OS, agent.Arch,
 		agent.Username, agent.PID, agent.LocalIPs, agent.Version,
+		agent.ExeName, agent.RemoteIP,
 		agent.FirstSeen, agent.LastSeen, agent.HeartbeatInterval, agent.Status,
 	)
 	if err != nil {
@@ -219,9 +220,11 @@ func (m *Manager) updateDB(agent *database.Agent) {
 	agent.LastSeen = now
 
 	_, err := m.db.Exec(
-		`UPDATE agents SET hostname=?, os=?, arch=?, username=?, pid=?, local_ips=?, last_seen=?, status='active'
+		`UPDATE agents SET hostname=?, os=?, arch=?, username=?, pid=?, local_ips=?, exe_name=?, remote_ip=?, last_seen=?, status='active'
 		 WHERE id=?`,
-		agent.Hostname, agent.OS, agent.Arch, agent.Username, agent.PID, agent.LocalIPs, now, agent.ID,
+		agent.Hostname, agent.OS, agent.Arch, agent.Username, agent.PID, agent.LocalIPs,
+		agent.ExeName, agent.RemoteIP,
+		now, agent.ID,
 	)
 	if err != nil {
 		log.Printf("[ERROR] Updating agent %s: %v", agent.ID, err)

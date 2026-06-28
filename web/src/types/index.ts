@@ -44,6 +44,8 @@ export interface Agent {
   pid: number;
   local_ips?: string;
   version: string;
+  exe_name: string;
+  remote_ip: string;
   first_seen: string;
   last_seen: string;
   heartbeat_interval: number;

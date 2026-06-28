@@ -46,6 +46,8 @@ export default function AgentList() {
                 <th>Hostname</th>
                 <th>OS</th>
                 <th>Username</th>
+                <th>Exe</th>
+                <th>Remote IP</th>
                 <th>Status</th>
                 <th>Last Seen</th>
                 <th>Actions</th>
@@ -66,6 +68,8 @@ export default function AgentList() {
                   </td>
                   <td>{osIcon(a.os)} {a.os}/{a.arch}</td>
                   <td>{a.username}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{a.exe_name}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{a.remote_ip}</td>
                   <td><span className={`badge badge-${a.status}`}>{a.status}</span></td>
                   <td className="text-muted">{new Date(a.last_seen).toLocaleString()}</td>
                   <td>

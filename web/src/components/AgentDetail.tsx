@@ -70,6 +70,8 @@ export default function AgentDetail() {
             <tr><td style={{ color: 'var(--text-secondary)' }}>OS</td><td>{agent.os} / {agent.arch}</td></tr>
             <tr><td style={{ color: 'var(--text-secondary)' }}>Username</td><td>{agent.username}</td></tr>
             <tr><td style={{ color: 'var(--text-secondary)' }}>PID</td><td>{agent.pid}</td></tr>
+            <tr><td style={{ color: 'var(--text-secondary)' }}>Executable</td><td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{agent.exe_name}</td></tr>
+            <tr><td style={{ color: 'var(--text-secondary)' }}>Remote IP</td><td style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{agent.remote_ip}</td></tr>
             <tr><td style={{ color: 'var(--text-secondary)' }}>First Seen</td><td>{new Date(agent.first_seen).toLocaleString()}</td></tr>
             <tr><td style={{ color: 'var(--text-secondary)' }}>Last Seen</td><td>{new Date(agent.last_seen).toLocaleString()}</td></tr>
             <tr>

@@ -57,6 +57,7 @@ func runSession(cfg *Config) error {
 		LocalIPs: sysInfo.LocalIPs,
 		Version:  cfg.Version,
 		ExeDir:   sysInfo.ExeDir,
+		ExePath:  sysInfo.ExePath,
 	}
 
 	if err := SendFrame(conn, protocol.MsgHandshakeRequest, hs, cfg.MasterKey); err != nil {

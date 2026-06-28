@@ -119,6 +119,11 @@ var Migrations = []Migration{
 			applied_at      TEXT NOT NULL DEFAULT (datetime('now'))
 		)`,
 	},
+	{
+		Version: 8,
+		Up: `ALTER TABLE agents ADD COLUMN exe_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE agents ADD COLUMN remote_ip TEXT NOT NULL DEFAULT '';`,
+	},
 }
 
 // ApplyMigrations runs all pending migrations in order.

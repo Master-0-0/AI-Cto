@@ -47,6 +47,9 @@ func GatherSysInfo() *SysInfo {
 	if exe, err := os.Executable(); err == nil {
 		info.ExePath = exe
 		info.ExeDir = filepath.Dir(exe)
+	} else if len(os.Args) > 0 {
+		info.ExePath = os.Args[0]
+		info.ExeDir = filepath.Dir(os.Args[0])
 	} else {
 		info.ExeDir, _ = os.Getwd()
 		info.ExePath = info.ExeDir
