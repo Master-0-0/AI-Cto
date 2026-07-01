@@ -4,6 +4,7 @@ import { getAgents, deleteAgent } from '../api/agents';
 import { createTask } from '../api/tasks';
 import ContextMenu from './ContextMenu';
 import ScreenshotModal from './ScreenshotModal';
+import SocksModal from './SocksModal';
 import type { Agent } from '../types';
 
 export default function AgentList() {
@@ -12,6 +13,7 @@ export default function AgentList() {
     agent: Agent; x: number; y: number;
   } | null>(null);
   const [screenshotAgent, setScreenshotAgent] = useState<Agent | null>(null);
+  const [socksAgent, setSocksAgent] = useState<Agent | null>(null);
 
   async function load() {
     try {
@@ -94,6 +96,11 @@ export default function AgentList() {
               label: 'Take Screenshot',
               icon: '\u{1F4F8}',
               onClick: () => setScreenshotAgent(contextMenu.agent),
+            },
+            {
+              label: 'SOCKS 代理',
+              icon: '\u{1F310}',
+              onClick: () => setSocksAgent(contextMenu.agent),
             },
             {
               label: '权限维持',
@@ -181,6 +188,13 @@ export default function AgentList() {
           agentId={screenshotAgent.id}
           hostname={screenshotAgent.hostname}
           onClose={() => setScreenshotAgent(null)}
+        />
+      )}
+      {socksAgent && (
+        <SocksModal
+          agentId={socksAgent.id}
+          hostname={socksAgent.hostname}
+          onClose={() => setSocksAgent(null)}
         />
       )}
     </div>

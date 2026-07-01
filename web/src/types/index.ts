@@ -112,6 +112,13 @@ export interface BuildResponse {
   listener_id: string;
 }
 
+export interface SocksStatus {
+  active: boolean;
+  port: number;
+  connection_count: number;
+  error?: string;
+}
+
 export interface ApiError {
   error: {
     code: string;

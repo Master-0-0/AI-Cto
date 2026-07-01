@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"sync"
 	"time"
 
 	"c2/pkg/protocol"
 )
+
+var writeMu sync.Mutex
 
 // Connect establishes a TCP connection to the teamserver.
 func Connect(host string, port string) (net.Conn, error) {
@@ -54,6 +57,13 @@ func RecvFrame(conn net.Conn, key []byte) (uint32, []byte, error) {
 	}
 
 	return msgType, plaintext, nil
+}
+
+// SendFrameSafe is the thread-safe version of SendFrame for use from tunnel goroutines.
+func SendFrameSafe(conn net.Conn, msgType uint32, body interface{}, key []byte) error {
+	writeMu.Lock()
+	defer writeMu.Unlock()
+	return SendFrame(conn, msgType, body, key)
 }
 
 // ReconnectLoop attempts to reconnect with exponential backoff.

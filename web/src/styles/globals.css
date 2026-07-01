@@ -504,6 +504,27 @@ tr:hover td {
   margin-top: 8px;
 }
 
+/* SOCKS Modal */
+.socks-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-height: 120px;
+}
+
+.socks-status-active {
+  color: #4caf50;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.socks-connection-count {
+  font-size: 1.5rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 /* Stager Panel (inline in table) */
 .stager-expand-row td {
   padding: 0;

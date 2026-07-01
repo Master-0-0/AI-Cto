@@ -11,6 +11,7 @@ import (
 
 	"c2/internal/teamserver/crypto"
 	"c2/internal/teamserver/database"
+	"c2/pkg/protocol"
 )
 
 // AgentState holds the runtime state for a connected agent.
@@ -20,6 +21,30 @@ type AgentState struct {
 	Cipher   *crypto.CipherSession
 	LastSeen time.Time
 	mu       sync.RWMutex
+	writeMu  sync.Mutex
+}
+
+// SendMessage encrypts, envelopes, and sends a protocol message to the agent.
+// Thread-safe: can be called from SOCKS5 tunnel goroutines concurrently.
+func (s *AgentState) SendMessage(msgType uint32, body interface{}) error {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+
+	payload, err := protocol.Serialize(body)
+	if err != nil {
+		return fmt.Errorf("serialize: %w", err)
+	}
+
+	encrypted, err := s.Cipher.Encrypt(payload)
+	if err != nil {
+		return fmt.Errorf("encrypt: %w", err)
+	}
+
+	envelope := protocol.EncodeEnvelope(msgType, encrypted)
+	if _, err := s.Conn.Write(envelope); err != nil {
+		return fmt.Errorf("write: %w", err)
+	}
+	return nil
 }
 
 // Manager manages all connected agents.

