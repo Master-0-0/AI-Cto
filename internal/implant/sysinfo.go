@@ -6,6 +6,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 // SysInfo holds collected system information.
@@ -36,6 +37,13 @@ func GatherSysInfo() *SysInfo {
 
 	if u, err := user.Current(); err == nil {
 		info.Username = u.Username
+		// Windows: os/user.Current().Username returns HOSTNAME\username format,
+		// strip the hostname prefix to keep only the pure username
+		if runtime.GOOS == "windows" {
+			if idx := strings.LastIndex(u.Username, "\\"); idx != -1 {
+				info.Username = u.Username[idx+1:]
+			}
+		}
 	} else {
 		info.Username = "unknown"
 	}

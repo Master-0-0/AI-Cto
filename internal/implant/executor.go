@@ -5,6 +5,7 @@ import (
 	"context"
 	"os/exec"
 	"runtime"
+	"syscall"
 	"time"
 
 	"golang.org/x/text/encoding/simplifiedchinese"
@@ -22,13 +23,14 @@ func ExecuteCommand(command string, timeoutSec uint32) ([]byte, error) {
 
 	switch runtime.GOOS {
 	case "windows":
-		cmd = exec.CommandContext(ctx, "cmd", "/c", command)
+		cmd = exec.CommandContext(ctx, "cmd")
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow:    true,
+			CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+			CmdLine:       `cmd /c ` + command,
+		}
 	default:
 		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", command)
-	}
-
-	if runtime.GOOS == "windows" {
-		cmd.SysProcAttr = hideWindow()
 	}
 
 	output, err := cmd.CombinedOutput()

@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface ContextMenuItem {
   label: string;
   icon?: string;
   onClick: () => void;
   disabled?: boolean;
+  children?: ContextMenuItem[];
 }
 
 interface Props {
@@ -16,6 +17,9 @@ interface Props {
 
 export default function ContextMenu({ x, y, items, onClose }: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const submenuRef = useRef<HTMLDivElement>(null);
+  const [openSubmenuIndex, setOpenSubmenuIndex] = useState<number | null>(null);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Adjust position to keep menu within viewport
   const menuWidth = 180; // estimated
@@ -35,6 +39,13 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
+  // Cleanup close timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    };
+  }, []);
+
   // Close on click outside
   useEffect(() => {
     function handleMouseDown(e: MouseEvent) {
@@ -52,6 +63,37 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
     };
   }, [onClose]);
 
+  function handleMouseEnter(index: number, item: ContextMenuItem) {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    if (item.children && !item.disabled) {
+      setOpenSubmenuIndex(index);
+    } else {
+      setOpenSubmenuIndex(null);
+    }
+  }
+
+  function handleMouseLeave() {
+    closeTimeoutRef.current = setTimeout(() => {
+      setOpenSubmenuIndex(null);
+    }, 150);
+  }
+
+  function handleSubmenuMouseEnter() {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  }
+
+  function handleSubmenuMouseLeave() {
+    closeTimeoutRef.current = setTimeout(() => {
+      setOpenSubmenuIndex(null);
+    }, 150);
+  }
+
   return (
     <div
       ref={menuRef}
@@ -62,15 +104,43 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
         <div
           key={i}
           className={`context-menu-item${item.disabled ? ' disabled' : ''}`}
+          onMouseEnter={() => handleMouseEnter(i, item)}
+          onMouseLeave={handleMouseLeave}
           onClick={() => {
-            if (!item.disabled) {
-              item.onClick();
-              onClose();
-            }
+            if (item.disabled) return;
+            if (item.children) return;
+            item.onClick();
+            onClose();
           }}
         >
           {item.icon && <span>{item.icon}</span>}
           <span>{item.label}</span>
+          {item.children && <span className="context-menu-arrow">▶</span>}
+
+          {item.children && openSubmenuIndex === i && (
+            <div
+              ref={submenuRef}
+              className="context-menu context-menu-submenu"
+              onMouseEnter={handleSubmenuMouseEnter}
+              onMouseLeave={handleSubmenuMouseLeave}
+            >
+              {item.children.map((child, j) => (
+                <div
+                  key={j}
+                  className={`context-menu-item${child.disabled ? ' disabled' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (child.disabled) return;
+                    child.onClick();
+                    onClose();
+                  }}
+                >
+                  {child.icon && <span>{child.icon}</span>}
+                  <span>{child.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>
