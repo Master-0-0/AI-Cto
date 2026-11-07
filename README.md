@@ -78,6 +78,38 @@ npm run dev
 
 ---
 
+## 页面截图
+
+### 登录
+
+![登录页](./docs/screenshots/01-login.png)
+
+### 仪表盘（Dashboard）
+
+![仪表盘](./docs/screenshots/02-dashboard.png)
+
+### 监听器（Listeners）
+
+![监听器](./docs/screenshots/03-listeners.png)
+
+### Agent 列表
+
+![Agent 列表](./docs/screenshots/04-agents.png)
+
+### Agent 详情（系统信息 / 任务 / 终端）
+
+![Agent 详情](./docs/screenshots/05-agent-detail.png)
+
+### 构建 Implant（Build）
+
+![构建](./docs/screenshots/06-build.png)
+
+### 审计日志（Audit Log）
+
+![审计日志](./docs/screenshots/07-audit.png)
+
+---
+
 ## 配置说明
 
 配置文件：`config/config.yaml`（参考模板 `config/config.example.yaml`）
